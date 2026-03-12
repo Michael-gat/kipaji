@@ -1,0 +1,8 @@
+Drill_ID,Drill_Name,Improves_Skill,Target_Metrics,Difficulty_Level,Positions_Targeted,Description
+D001,Mikan Drill,"Finishing, Weak Hand","FG_Pct, TS_Pct",Beginner,All,Continuous layups focusing on footwork and using both hands right under the basket.
+D002,Form Shooting Series,Shooting Mechanics,"FG_Pct, FG3_Pct, FT_Pct, TS_Pct",Beginner,All,One-handed shooting close to the basket to build muscle memory and correct form.
+D003,2-Ball Dribbling,"Ball Handling, Vision","TOV, AST_TO_Ratio",Intermediate,"PG, SG",Dribbling two basketballs simultaneously while keeping eyes up.
+D004,Superman Rebounding,"Rebounding, Conditioning",TRB,Intermediate,"PF, C, SF",Tapping the ball off the backboard continuously from one side of the rim to the other without landing.
+D005,Spot-Up Shooting (5 Spots),Catch and Shoot,"FG3_Pct, TS_Pct",Intermediate,"PG, SG, SF",Receiving passes and shooting 3-pointers from 5 different spots on the perimeter.
+D006,Post Moves (Drop Step & Hook),Post Scoring,"FG_Pct, PTS",Advanced,"PF, C",Practicing standard post moves from the low block against a pad or defender.
+D007,Pick and Roll Reads,"Playmaking, Decision Making","AST, AST_TO_Ratio",Advanced,"PG, SG","Running pick and rolls against a defense and practicing reads (pass to roller, kick out, or score)."
