@@ -100,11 +100,13 @@ def generate_drill_data():
     ]
     return pd.DataFrame(drills)
 
-# Generate and save locally in Colab
+# Generate and save locally in the data folder
 df_players = generate_player_data(100)
-df_players.to_csv('synthetic_players.csv', index=False)
+df_players.to_csv('data/synthetic_players.csv', index=False)
+
 df_drills = generate_drill_data()
-df_drills.to_csv('drill_database.csv', index=False)
-print("-> Data generated and saved successfully!\n")
+df_drills.to_csv('data/drill_database.csv', index=False)
+
+print("-> Data generated and saved successfully to the data/ folder!\n")
 
 
