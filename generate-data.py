@@ -4,10 +4,9 @@ import random
 import uuid
 import os
 
-# ==========================================
 # PART 1: DATA GENERATION
-# ==========================================
-print("--- Generating Kipaji Synthetic Data ---")
+
+print(" Generating Kipaji Synthetic Data")
 np.random.seed(42)
 random.seed(42)
 
