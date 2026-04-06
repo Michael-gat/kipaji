@@ -64,8 +64,8 @@ app.get('/api/health', (req, res) => {
 // NEW: Fetch all players for the Roster table!
 app.get('/api/coach/roster', async (req, res) => {
   try {
-    const pythonResponse = await axios.get(`http://localhost:8000/api/players`);
-    res.json(pythonResponse.data);
+    const pythonResponse = await axios.get(`http://localhost:8000/players/search?q=&limit=100`);
+    res.json({ players: pythonResponse.data });
   } catch (error) {
     console.error("Error fetching roster:", error.message);
     res.status(500).json({ error: "Could not load roster." });
@@ -76,8 +76,50 @@ app.get('/api/coach/evaluate/:playerName', async (req, res) => {
   try {
     const playerName = req.params.playerName;
     console.log(`Node.js asking Python to evaluate: ${playerName}`);
-    const pythonResponse = await axios.get(`http://localhost:8000/api/evaluate/${playerName}`);
-    res.json(pythonResponse.data);
+
+    // First, search for the player ID
+    const searchResponse = await axios.get(`http://localhost:8000/players/search?q=${playerName}`);
+    const players = searchResponse.data;
+
+    if (!players || players.length === 0) {
+      return res.status(404).json({ error: "Player not found in database." });
+    }
+
+    const playerId = players[0].player_id;
+
+    // Then fetch the analysis
+    const pythonResponse = await axios.get(`http://localhost:8000/players/${playerId}/analysis`);
+
+    // Transform new AI logic back to the format expected by the frontend
+    const analysis = pythonResponse.data;
+
+    // Determine primary weakness (most critical weakness)
+    const weaknessKeys = Object.keys(analysis.weaknesses);
+    let primaryWeakness = "None";
+    let gapPercentage = 0;
+
+    if (weaknessKeys.length > 0) {
+       // Just pick the first weakness for this demo
+       primaryWeakness = weaknessKeys[0];
+       // Estimate gap from percentile (if percentile is 20, gap is 80%)
+       gapPercentage = 100 - analysis.weaknesses[primaryWeakness].percentile;
+    }
+
+    const transformedResponse = {
+        player_info: {
+            name: analysis.full_name,
+            position: analysis.position_group,
+            current_ts: analysis.kpis.ts_pct || analysis.kpis.fg_pct // fallback if TS not directly there
+        },
+        ai_analysis: {
+            primary_weakness: primaryWeakness,
+            gap_percentage: gapPercentage
+        },
+        // We will just return the drills from the first recommendation for simplicity
+        recommended_drills: analysis.recommendations.length > 0 ? analysis.recommendations[0].drills : []
+    };
+
+    res.json(transformedResponse);
   } catch (error) {
     console.error("Error communicating with AI Engine:", error.message);
     if (error.response && error.response.status === 404) {

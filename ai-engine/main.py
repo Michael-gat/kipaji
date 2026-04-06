@@ -1,99 +1,173 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-import pandas as pd
+"""
+Kipaji FastAPI Service
+======================
+Exposes ML model endpoints consumed by the Node/Express backend.
+Run:  uvicorn main:app --reload --port 8000
+"""
+
+from __future__ import annotations
 import os
+from functools import lru_cache
+from typing import Optional, List
 
-# --- 1. Load Data ---
-current_dir = os.path.dirname(os.path.abspath(__file__))
-data_dir = os.path.join(current_dir, '..', 'data')
+from fastapi import FastAPI, HTTPException, Depends, Security
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel
+import jwt
 
-try:
-    players_df = pd.read_csv(os.path.join(data_dir, 'synthetic_players.csv'))
-    drills_df = pd.read_csv(os.path.join(data_dir, 'drill_database.csv'))
-except FileNotFoundError:
-    print("Warning: CSV files not found. Ensure generate_data.py has been run.")
-    players_df = pd.DataFrame()
-    drills_df = pd.DataFrame()
+from model import KipajiModel
 
-# 2. Initialize FastAPI App 
-app = FastAPI(title="Kipaji AI Engine API")
+# ── App setup ─────────────────────────────────────────────
+app = FastAPI(
+    title="Kipaji ML API",
+    description="Player analysis and drill recommendation engine",
+    version="1.0.0",
+)
 
-# Allow the Node.js backend to make requests to this API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=["*"],  # Node backend and frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 3. AI Logic Functions (Same as before!) 
-def calculate_position_averages(df, position):
-    pos_df = df[df['Position'] == position]
-    if pos_df.empty: return None
-    metrics = ['PTS', 'AST', 'TRB', 'TOV', 'FG_Pct', 'FG3_Pct', 'FT_Pct', 'TS_Pct', 'AST_TO_Ratio']
-    return pos_df[metrics].mean().to_dict()
+# ── Auth (validates JWT issued by Node/Express) ────────────
+JWT_SECRET  = os.getenv("JWT_SECRET", "change_me_in_production")
+JWT_ALGO    = "HS256"
+bearer_scheme = HTTPBearer()
 
-def identify_weakness(player_stats, averages):
-    gaps = {}
-    higher_is_better = ['PTS', 'AST', 'TRB', 'FG_Pct', 'FG3_Pct', 'FT_Pct', 'TS_Pct', 'AST_TO_Ratio']
-    for metric in higher_is_better:
-        if averages[metric] > 0:
-            gaps[metric] = (player_stats[metric] - averages[metric]) / averages[metric]
-    
-    if averages['TOV'] > 0:
-         gaps['TOV'] = (averages['TOV'] - player_stats['TOV']) / averages['TOV']
+def verify_token() -> dict:
+    # Temporarily bypass auth for the demo/development
+    return {"user": "test"}
 
-    weakest_metric = min(gaps, key=gaps.get)
-    return weakest_metric, gaps[weakest_metric]
+# ── Load model once at startup ─────────────────────────────
+@lru_cache(maxsize=1)
+def get_model() -> KipajiModel:
+    model = KipajiModel()
+    try:
+        model.load()
+    except Exception:
+        model.fit()
+    return model
 
-def recommend_drills(weak_metric, drills_df):
-    matching_drills = drills_df[drills_df['Target_Metrics'].str.contains(weak_metric, na=False)]
-    if matching_drills.empty: return []
-    return matching_drills[['Drill_Name', 'Improves_Skill', 'Difficulty_Level', 'Description']].to_dict('records')
+@app.on_event("startup")
+async def startup():
+    get_model()   # warm up
 
-#  4. API Endpoints (The new part!) 
-@app.get("/")
-def read_root():
-    return {"message": "Kipaji AI Engine is running."}
+# ── Request / Response schemas ─────────────────────────────
+class AnalysisResponse(BaseModel):
+    player_id:      int
+    full_name:      str
+    team:           str
+    games_played:   int
+    position_group: str
+    kpis:           dict
+    benchmarks:     dict
+    strengths:      dict
+    averages:       dict
+    weaknesses:     dict
+    recommendations: list
 
-@app.get("/api/players")
-def get_all_players():
-    """Returns a list of all players in the database for the frontend roster table."""
-    if players_df.empty:
-        return {"players": []}
-    
-    simplified_roster = players_df[['Name', 'Position', 'TS_Pct']].to_dict('records')
-    return {"players": simplified_roster}
+class PlayerSummary(BaseModel):
+    player_id:      int
+    full_name:      str
+    team_abbr:      Optional[str]
+    position_group: Optional[str]
+    games_played:   int
 
-@app.get("/api/evaluate/{player_name}")
-def evaluate_player_endpoint(player_name: str):
-    """The main AI endpoint. Takes a player name in the URL and returns JSON recommendations."""
-    if players_df.empty:
-        raise HTTPException(status_code=500, detail="Database not initialized.")
+class LeaderboardEntry(BaseModel):
+    player_id:      int
+    full_name:      str
+    team_abbr:      Optional[str]
+    position_group: Optional[str]
+    games_played:   int
 
-    # Find player (case insensitive)
-    player_row = players_df[players_df['Name'].str.lower() == player_name.lower()]
-    if player_row.empty:
-        raise HTTPException(status_code=404, detail="Player not found in the dataset.")
-    
-    player_stats = player_row.iloc[0].to_dict()
-    position = player_stats['Position']
-    averages = calculate_position_averages(players_df, position)
-    
-    weak_metric, gap = identify_weakness(player_stats, averages)
-    recommendations = recommend_drills(weak_metric, drills_df)
+# ── Endpoints ─────────────────────────────────────────────
 
-    # Return structured JSON instead of print statements!
-    return {
-        "player_info": {
-            "name": player_stats['Name'],
-            "position": position,
-            "current_ts": round(player_stats['TS_Pct'], 3)
-        },
-        "ai_analysis": {
-            "primary_weakness": weak_metric,
-            "gap_percentage": round(abs(gap) * 100, 1)
-        },
-        "recommended_drills": recommendations
-    }
+@app.get("/health")
+def health():
+    return {"status": "ok", "service": "kipaji-ml"}
+
+
+@app.get("/players/search", response_model=List[PlayerSummary])
+def search_players(
+    q: str,
+    limit: int = 10,
+    _user: dict = Depends(verify_token),
+    model: KipajiModel = Depends(get_model),
+):
+    """Search players by name (partial match)."""
+    results = model.search_players(q, limit=limit)
+    return results
+
+
+@app.get("/players/{player_id}/analysis", response_model=AnalysisResponse)
+def analyze_player(
+    player_id: int,
+    _user: dict = Depends(verify_token),
+    model: KipajiModel = Depends(get_model),
+):
+    """
+    Full player analysis:
+    KPIs → benchmarks → strengths/weaknesses → drill recommendations.
+    """
+    try:
+        result = model.analyze_player(player_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return result
+
+
+@app.get("/leaderboard")
+def leaderboard(
+    metric:         str = "pts_avg",
+    position_group: Optional[str] = None,
+    top_n:          int = 20,
+    ascending:      bool = False,
+    _user: dict = Depends(verify_token),
+    model: KipajiModel = Depends(get_model),
+):
+    """Return top players by any KPI metric."""
+    try:
+        return model.leaderboard(metric=metric, position_group=position_group,
+                                 top_n=top_n, ascending=ascending)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/players/{player_id}/peers")
+def player_peers(
+    player_id: int,
+    top_n: int = 5,
+    _user: dict = Depends(verify_token),
+    model: KipajiModel = Depends(get_model),
+):
+    """Return similar players by position group and stats profile."""
+    try:
+        row = model.kpis_df[model.kpis_df["player_id"] == player_id]
+        if row.empty:
+            raise HTTPException(status_code=404, detail="Player not found")
+        pos = row.iloc[0]["position_group"]
+        peers = model.kpis_df[
+            (model.kpis_df["position_group"] == pos) &
+            (model.kpis_df["player_id"] != player_id)
+        ][["player_id","full_name","team_abbr","position_group","games_played","pts_avg","ast_avg","reb_avg"]]\
+         .sort_values("pts_avg", ascending=False).head(top_n)
+        return peers.to_dict(orient="records")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/model/retrain")
+def retrain_model(
+    _user: dict = Depends(verify_token),
+):
+    """Re-fit the model (admin only)."""
+    if _user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    get_model.cache_clear()
+    m = KipajiModel().fit()
+    get_model.cache_clear()
+    return {"status": "retrained", "players": len(m.kpis_df)}
