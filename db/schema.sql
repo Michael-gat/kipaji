@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS player_season_stats (
     reb_avg       NUMERIC(5,3),
     -- Playmaking & Ball Control
     ast_avg       NUMERIC(5,3),
-    ast_tov_ratio NUMERIC(10,3),
+    ast_tov_ratio NUMERIC(6,3),
     tov_avg       NUMERIC(5,3),
     -- Defense
     stl_avg       NUMERIC(5,3),
@@ -133,15 +133,15 @@ CREATE INDEX IF NOT EXISTS idx_ftg_date ON fact_team_games(game_date);
 -- ================================================================
 
 CREATE TABLE IF NOT EXISTS drills (
-    drill_id           VARCHAR(10)      PRIMARY KEY,
+    drill_id           CHAR(4)      PRIMARY KEY,
     drill_name         VARCHAR(150) NOT NULL,
     improves_skill     VARCHAR(150),
     target_metrics     VARCHAR(200),
-    difficulty_level   VARCHAR(20),
+    difficulty_level   VARCHAR(20)  CHECK (difficulty_level IN ('Beginner','Intermediate','Advanced')),
+    intensity          VARCHAR(10)  CHECK (intensity IN ('Low','Medium','High')),
+    focus              VARCHAR(30),
     positions_targeted VARCHAR(100),
-    description        TEXT,
-    intensity          VARCHAR(10),
-    focus              VARCHAR(30)
+    description        TEXT
 );
 
 -- ================================================================
@@ -192,16 +192,23 @@ CREATE INDEX IF NOT EXISTS idx_ua_date   ON user_analyses(created_at DESC);
 -- (Run from same folder as CSV files, or adjust paths)
 -- ================================================================
 
-\copy dim_teams(team_id, team_name, abbreviation, city, state) FROM '/docker-entrypoint-initdb.d/Data/kipaji_dim_teams.csv' WITH (FORMAT csv, HEADER true);
+\copy dim_teams(team_id, team_name, abbreviation, city, state)
+    FROM 'kipaji_dim_teams.csv' CSV HEADER;
 
-\copy dim_players(player_id, full_name, first_name, last_name) FROM '/docker-entrypoint-initdb.d/Data/kipaji_dim_players.csv' WITH (FORMAT csv, HEADER true);
+\copy dim_players(player_id, full_name, first_name, last_name)
+    FROM 'kipaji_dim_players.csv' CSV HEADER;
 
-\copy player_team_seasons(player_id, primary_team_id, primary_team_abbr, all_teams_season, num_teams, games_with_primary_team, season) FROM '/docker-entrypoint-initdb.d/Data/kipaji_player_team_seasons.csv' WITH (FORMAT csv, HEADER true);
+\copy player_team_seasons(player_id, primary_team_id, primary_team_abbr, all_teams_season, num_teams, games_with_primary_team, season)
+    FROM 'kipaji_player_team_seasons.csv' CSV HEADER;
 
-\copy player_season_stats(player_id, games_played, min_avg, pts_avg, fgm_avg, fga_avg, fg_pct, fg3m_avg, fg3a_avg, fg3_pct, ftm_avg, fta_avg, ft_pct, oreb_avg, dreb_avg, reb_avg, ast_avg, stl_avg, blk_avg, tov_avg, pf_avg, ast_tov_ratio, season) FROM '/docker-entrypoint-initdb.d/Data/kipaji_player_season_stats.csv' WITH (FORMAT csv, HEADER true);
+\copy player_season_stats(player_id, games_played, min_avg, pts_avg, fgm_avg, fga_avg, fg_pct, fg3m_avg, fg3a_avg, fg3_pct, ftm_avg, fta_avg, ft_pct, oreb_avg, dreb_avg, reb_avg, ast_avg, stl_avg, blk_avg, tov_avg, pf_avg, ast_tov_ratio, season)
+    FROM 'kipaji_player_season_stats.csv' CSV HEADER;
 
-\copy fact_player_games(player_id, game_id, game_date, matchup, wl, min, fgm, fga, fg_pct, fg3m, fg3a, fg3_pct, ftm, fta, ft_pct, oreb, dreb, reb, ast, stl, blk, tov, pf, pts, plus_minus, team_id, team_name) FROM '/docker-entrypoint-initdb.d/Data/kipaji_fact_player_games.csv' WITH (FORMAT csv, HEADER true);
+\copy fact_player_games(player_id, game_id, game_date, matchup, wl, min, fgm, fga, fg_pct, fg3m, fg3a, fg3_pct, ftm, fta, ft_pct, oreb, dreb, reb, ast, stl, blk, tov, pf, pts, plus_minus, team_id, team_name)
+    FROM 'kipaji_fact_player_games.csv' CSV HEADER;
 
-\copy fact_team_games(game_id, team_id, game_date, matchup, wl, min, fgm, fga, fg_pct, fg3m, fg3a, fg3_pct, ftm, fta, ft_pct, oreb, dreb, reb, ast, stl, blk, tov, pf, pts) FROM '/docker-entrypoint-initdb.d/Data/kipaji_fact_team_games.csv' WITH (FORMAT csv, HEADER true);
+\copy fact_team_games(game_id, team_id, game_date, matchup, wl, min, fgm, fga, fg_pct, fg3m, fg3a, fg3_pct, ftm, fta, ft_pct, oreb, dreb, reb, ast, stl, blk, tov, pf, pts)
+    FROM 'kipaji_fact_team_games.csv' CSV HEADER;
 
-\copy drills(drill_id, drill_name, improves_skill, target_metrics, difficulty_level, positions_targeted, description) FROM '/docker-entrypoint-initdb.d/Data/kipaji_drills.csv' WITH (FORMAT csv, HEADER true);
+\copy drills(drill_id, drill_name, improves_skill, target_metrics, difficulty_level, intensity, focus, positions_targeted, description)
+    FROM 'kipaji_drills.csv' CSV HEADER;

@@ -4,12 +4,12 @@ import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Responsi
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
-
+  
   // API State
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [evaluation, setEvaluation] = useState(null);
-
+  
   // Roster State (Now fetched from Python!)
   const [rosterData, setRosterData] = useState([]);
   const [rosterLoading, setRosterLoading] = useState(false);
@@ -39,7 +39,7 @@ function App() {
       setError("Please enter a player name.");
       return;
     }
-
+    
     setSearchQuery(targetName);
     setLoading(true);
     setError(null);
@@ -49,7 +49,7 @@ function App() {
       const response = await fetch(`http://localhost:5000/api/coach/evaluate/${encodeURIComponent(targetName)}`);
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Failed to fetch evaluation.");
-
+      
       // Dynamic Radar Chart Data based on Python's gap analysis
       const chartData = [
         { subject: 'Shooting (TS%)', A: Math.round(data.player_info.current_ts * 100), B: Math.round(data.player_info.current_ts * 100) + (data.ai_analysis.primary_weakness.includes('TS') ? data.ai_analysis.gap_percentage : 0), fullMark: 100 },
@@ -58,7 +58,7 @@ function App() {
         { subject: 'Ball Security (TOV)', A: 80, B: data.ai_analysis.primary_weakness === 'TOV' ? 60 : 75, fullMark: 100 },
         { subject: 'Efficiency (FG%)', A: 65, B: data.ai_analysis.primary_weakness === 'FG_Pct' ? 85 : 60, fullMark: 100 },
       ];
-
+      
       setEvaluation({ ...data, chartData });
     } catch (err) {
       setError(err.message);
@@ -71,18 +71,12 @@ function App() {
   const loadRoster = async () => {
     setActiveTab('roster');
     if (rosterData.length > 0) return; // Don't fetch if we already have it
-
+    
     setRosterLoading(true);
     try {
       const response = await fetch(`http://localhost:5000/api/coach/roster`);
       const data = await response.json();
-      // Map new API data to the old frontend format
-      const players = (data.players || []).map(p => ({
-        Name: p.full_name,
-        Position: p.position_group,
-        TS_Pct: p.pts_avg ? (p.pts_avg / 20) : 0.5 // rough proxy since new search doesn't return TS_Pct
-      }));
-      setRosterData(players);
+      setRosterData(data.players || []);
     } catch (err) {
       console.error("Failed to load roster", err);
     } finally {
@@ -92,7 +86,7 @@ function App() {
 
   return (
     <div className="flex h-screen bg-[#0B1120] font-sans text-slate-300 overflow-hidden selection:bg-red-600/30 selection:text-white">
-
+      
       {/* SIDEBAR (Dark Premium Theme) */}
       <aside className="w-64 bg-[#111827] border-r border-slate-800/50 flex flex-col z-20 shadow-2xl flex-shrink-0">
         <div className="p-8 border-b border-slate-800/50">
@@ -108,7 +102,7 @@ function App() {
           </h1>
           <p className="text-[10px] text-slate-500 mt-2 uppercase tracking-[0.3em] font-bold">Elite Coaching</p>
         </div>
-
+        
         <nav className="flex-1 px-4 py-6 space-y-2">
           <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl font-semibold transition-all duration-200 ${activeTab === 'dashboard' ? 'bg-[#1f2937] text-white shadow-[0_0_15px_rgba(0,0,0,0.5)] border border-slate-700/50' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
@@ -127,7 +121,7 @@ function App() {
 
       {/* MAIN CONTENT AREA */}
       <main className="flex-1 flex flex-col h-full relative overflow-y-auto">
-
+        
         {/* Top Header */}
         <header className="bg-[#111827]/80 backdrop-blur-md border-b border-slate-800/50 px-10 py-6 flex justify-between items-center z-10 sticky top-0">
           <div>
@@ -138,7 +132,7 @@ function App() {
             </h2>
             <p className="text-xs text-slate-500 mt-1 font-mono uppercase tracking-widest">Kipaji Engine v1.0.4</p>
           </div>
-
+          
           <div className="flex items-center gap-3 px-4 py-2 bg-[#1f2937] border border-slate-700/50 rounded-full shadow-inner">
              <div className="w-2 h-2 bg-[#16a34a] rounded-full animate-pulse shadow-[0_0_10px_rgba(22,163,74,0.8)]"></div>
              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Server Connected</span>
@@ -146,13 +140,13 @@ function App() {
         </header>
 
         <div className="p-8 xl:p-10 w-full max-w-[1600px] mx-auto">
-
+          
           {/* =========================================
               TAB 1: TEAM OVERVIEW (REDESIGNED)
              ========================================= */}
           {activeTab === 'dashboard' && (
             <div className="space-y-6 animate-fade-in w-full">
-
+              
               {/* TOP STAT CARDS */}
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                 <div className="bg-[#1f2937] rounded-2xl border border-slate-700/50 p-6 flex flex-col justify-between">
@@ -165,7 +159,7 @@ function App() {
                     </span>
                   </div>
                 </div>
-
+                
                 <div className="bg-[#1f2937] rounded-2xl border border-slate-700/50 p-6 flex flex-col justify-between">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Active AI Weaknesses</p>
                   <div className="flex items-end justify-between">
@@ -193,7 +187,7 @@ function App() {
 
               {/* WIDE CHARTS ROW */}
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-
+                
                 {/* LARGE PERFORMANCE CHART */}
                 <div className="xl:col-span-2 bg-[#1f2937] rounded-2xl border border-slate-700/50 p-6 h-96 flex flex-col">
                   <div className="flex justify-between items-center mb-6">
@@ -251,29 +245,29 @@ function App() {
              ========================================= */}
           {activeTab === 'players' && (
             <div className="w-full space-y-6 animate-fade-in">
-
+              
               {/* Search Bar - Full Width */}
               <div className="bg-[#1f2937] rounded-2xl shadow-lg border border-slate-700/50 p-6 md:p-8">
                 <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-3 uppercase tracking-widest">
                   <span className="w-2 h-6 bg-[#dc2626] rounded-full"></span>
                   Execute Scouting Report
                 </h3>
-
+                
                 <div className="flex flex-col sm:flex-row gap-4">
                   <div className="relative flex-1">
                     <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
                        <svg className="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                     </div>
-                    <input
-                      type="text"
+                    <input 
+                      type="text" 
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && runAIEvaluation()}
-                      placeholder="Search player database (e.g., 'James Smith')"
+                      placeholder="Search player database (e.g., 'James Smith')" 
                       className="w-full pl-14 pr-4 py-4 bg-[#0f172a] border border-slate-700/80 rounded-xl text-lg font-medium text-white focus:outline-none focus:ring-2 focus:ring-[#dc2626] transition-all placeholder-slate-600 shadow-inner"
                     />
                   </div>
-                  <button
+                  <button 
                     onClick={() => runAIEvaluation()}
                     disabled={loading}
                     className="bg-[#dc2626] text-white px-10 py-4 rounded-xl font-black uppercase tracking-wider hover:bg-red-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(220,38,38,0.4)]"
@@ -287,18 +281,18 @@ function App() {
               {/* DYNAMIC REPORT - TWO COLUMN WIDE LAYOUT */}
               {evaluation && !loading && (
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 animate-slide-up items-start">
-
+                  
                   {/* LEFT COLUMN: Player Identity & Chart */}
                   <div className="xl:col-span-1 flex flex-col gap-6">
-
+                    
                     {/* Player Profile Card */}
                     <div className="bg-gradient-to-b from-[#1f2937] to-[#0f172a] rounded-2xl border border-slate-700/50 p-8 flex flex-col items-center text-center relative overflow-hidden">
                       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#dc2626] via-[#16a34a] to-black"></div>
-
+                      
                       <div className="w-32 h-32 rounded-full bg-slate-800 flex items-center justify-center text-white font-black text-5xl shadow-2xl border-4 border-[#1f2937] mb-6">
                         {evaluation.player_info.name.charAt(0)}
                       </div>
-
+                      
                       <h2 className="text-3xl font-black text-white tracking-tight mb-1">{evaluation.player_info.name}</h2>
                       <p className="text-[#16a34a] font-bold tracking-widest uppercase text-sm mb-6 flex items-center justify-center gap-2">
                         <span className="px-2 py-0.5 bg-green-900/30 rounded border border-green-500/20">{evaluation.player_info.position}</span>
@@ -336,16 +330,16 @@ function App() {
 
                   {/* RIGHT COLUMN: AI Analysis & Drills */}
                   <div className="xl:col-span-2 flex flex-col gap-6">
-
+                    
                     {/* The AI Diagnosis */}
                     <div className="bg-[#1f2937] rounded-2xl border border-slate-700/50 p-8 relative overflow-hidden">
                       <div className="absolute right-0 top-0 w-32 h-32 bg-[#dc2626]/10 blur-3xl rounded-full translate-x-10 -translate-y-10 pointer-events-none"></div>
-
+                      
                       <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
                         <svg className="w-5 h-5 text-[#dc2626]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                         Engine Diagnosis
                       </h4>
-
+                      
                       <div className="flex flex-col sm:flex-row items-center gap-8">
                         <div className="w-full sm:w-1/3 text-center sm:text-left border-b sm:border-b-0 sm:border-r border-slate-700/50 pb-6 sm:pb-0 sm:pr-6">
                           <p className="text-slate-500 font-bold uppercase text-xs tracking-wider mb-2">Identified Flaw</p>
@@ -369,17 +363,17 @@ function App() {
                     {/* Prescribed Drills List */}
                     <div className="bg-[#1f2937] rounded-2xl border border-slate-700/50 p-8 flex-1">
                       <h4 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6">Prescribed Training Regimen</h4>
-
+                      
                       {evaluation.recommended_drills.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {evaluation.recommended_drills.map((drill, idx) => (
                             <div key={idx} className="bg-[#0f172a] border border-slate-700/50 rounded-xl p-6 hover:border-[#16a34a]/50 transition-all group flex flex-col h-full">
                               <div className="flex justify-between items-start mb-3">
-                                <h5 className="font-bold text-white text-lg leading-tight pr-2">{drill.name}</h5>
-                                <span className="px-2.5 py-1 bg-slate-800 text-slate-300 text-[10px] font-bold uppercase tracking-widest rounded-md border border-slate-700 flex-shrink-0">{drill.difficulty}</span>
+                                <h5 className="font-bold text-white text-lg leading-tight pr-2">{drill.Drill_Name}</h5>
+                                <span className="px-2.5 py-1 bg-slate-800 text-slate-300 text-[10px] font-bold uppercase tracking-widest rounded-md border border-slate-700 flex-shrink-0">{drill.Difficulty_Level}</span>
                               </div>
-                              <p className="text-[#16a34a] text-xs font-bold uppercase tracking-wider mb-3">Target: {drill.skill}</p>
-                              <p className="text-slate-400 text-sm leading-relaxed flex-1">{drill.description}</p>
+                              <p className="text-[#16a34a] text-xs font-bold uppercase tracking-wider mb-3">Target: {drill.Improves_Skill}</p>
+                              <p className="text-slate-400 text-sm leading-relaxed flex-1">{drill.Description}</p>
                               <button className="mt-4 w-full bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold py-2 rounded-lg transition-colors">Assign to Schedule</button>
                             </div>
                           ))}
@@ -409,7 +403,7 @@ function App() {
                   Export Data
                 </button>
               </div>
-
+              
               {rosterLoading ? (
                 <div className="p-32 text-center flex flex-col items-center justify-center">
                   <svg className="animate-spin h-10 w-10 text-[#dc2626] mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -447,7 +441,7 @@ function App() {
                              <span className="font-black text-lg text-[#16a34a]">{(player.TS_Pct * 100).toFixed(1)}%</span>
                           </td>
                           <td className="p-5 text-right">
-                            <button
+                            <button 
                               onClick={() => runAIEvaluation(player.Name)}
                               className="text-white bg-[#dc2626] hover:bg-red-700 px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors shadow-lg shadow-red-900/20"
                             >
