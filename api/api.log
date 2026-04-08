@@ -1,0 +1,9 @@
+INFO:     Will watch for changes in these directories: ['/app/api']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [546089] using WatchFiles
+INFO:     Started server process [546243]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:51816 - "GET /players/search?q=&limit=100 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51816 - "GET /players/search?q=LeBron%20James HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51816 - "GET /players/2544/analysis HTTP/1.1" 200 OK
