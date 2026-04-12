@@ -24,14 +24,12 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from sqlalchemy import create_engine
 
-# ── Paths ──────────────────────────────────────────────────
+# Paths
 BASE_DIR   = Path(__file__).parent
 MODELS_DIR = BASE_DIR / "saved_models"
 MODELS_DIR.mkdir(exist_ok=True)
-
-DB_URI = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/kipaji")
-
-# ── Position cluster labels (matched to KMeans output) ─────
+DB_URI = "postgresql://postgres:postgres@127.0.0.1:5432/kipaji"
+# Position cluster labels (matched to KMeans output)
 CLUSTER_LABELS = {
     0: "G",      # Guards / Wings starters  (high AST, 3P, pts)
     1: "F/C",    # Big men bench            (high reb/blk, low 3P)
@@ -49,7 +47,7 @@ POSITION_METRIC_WEIGHTS = {
     "BENCH": {"fg_pct":1.0, "min_avg":1.0},
 }
 
-# ── KPI derivation ─────────────────────────────────────────
+#  KPI derivation 
 def compute_kpis(row: pd.Series) -> dict:
     """Compute derived KPIs from a player's season averages."""
     min_g  = max(row["min_avg"], 0.1)   # guard against /0
@@ -86,7 +84,7 @@ def compute_kpis(row: pd.Series) -> dict:
     }
 
 
-# ── Weakness → drill-category mapping ─────────────────────
+# Weakness → drill-category mapping 
 WEAKNESS_DRILL_MAP = {
     "fg_pct":             ["shooting_mechanics", "finishing"],
     "scoring_efficiency": ["shooting_mechanics", "finishing"],
@@ -158,9 +156,9 @@ class KipajiModel:
         self.kmeans     : Optional[KMeans] = None
         self.is_fitted   = False
 
-    # ----------------------------------------------------------
+
     # 1. FIT
-    # ----------------------------------------------------------
+ 
     def fit(self) -> "KipajiModel":
         # Load data from PostgreSQL
         engine = create_engine(DB_URI)
@@ -189,7 +187,7 @@ class KipajiModel:
             kpi_rows.append(kpi)
         self.kpis_df = pd.DataFrame(kpi_rows)
 
-        # ── Position clustering ──────────────────────────────
+        # Position clustering 
         pos_features = ["reb_avg","oreb_avg","dreb_avg","blk_avg",
                         "ast_avg","fg3_pct","fg3a_avg","stl_avg","min_avg","pts_avg"]
         X = self.kpis_df[pos_features].fillna(0).values
@@ -208,9 +206,9 @@ class KipajiModel:
         print(f"✅ KipajiModel fitted on {len(self.kpis_df)} players.")
         return self
 
-    # ----------------------------------------------------------
+  
     # 2. LOAD (if already fitted)
-    # ----------------------------------------------------------
+ 
     def load(self) -> "KipajiModel":
         engine = create_engine(DB_URI)
         self.stats_df   = pd.read_sql_table("player_season_stats", engine)
@@ -222,10 +220,8 @@ class KipajiModel:
         self.kpis_df    = pd.read_csv(MODELS_DIR / "kpis_with_positions.csv")
         self.is_fitted  = True
         return self
-
-    # ----------------------------------------------------------
     # 3. BENCHMARK: percentile within position group
-    # ----------------------------------------------------------
+  
     def _benchmark(self, player_kpi: dict, position_group: str) -> dict:
         """
         Return a dict of { metric_key: { value, percentile, label } }
@@ -264,9 +260,7 @@ class KipajiModel:
             }
         return benchmarks
 
-    # ----------------------------------------------------------
     # 4. IDENTIFY WEAKNESSES
-    # ----------------------------------------------------------
     def _identify_weaknesses(self, benchmarks: dict, position_group: str, top_n: int = 3) -> list:
         """Return top_n weakest metrics, adjusted by position relevance."""
         weights = POSITION_METRIC_WEIGHTS.get(position_group, {})
@@ -284,9 +278,8 @@ class KipajiModel:
         scored.sort(key=lambda x: -x[1])
         return scored[:top_n]
 
-    # ----------------------------------------------------------
+   
     # 5. DRILL RECOMMENDATION
-    # ----------------------------------------------------------
     def _recommend_drills(self, weak_metrics: list, position_group: str, n_per_weakness: int = 3) -> list:
         """Map each weakness to drill categories, then select best matching drills."""
         recommendations = []
@@ -348,9 +341,7 @@ class KipajiModel:
 
         return recommendations
 
-    # ----------------------------------------------------------
-    # 6. ANALYZE PLAYER  (main entry point)
-    # ----------------------------------------------------------
+    # 6. ANALYZE PLAYER  (main entry point
     def analyze_player(self, player_id: int) -> dict:
         if not self.is_fitted:
             raise RuntimeError("Model not fitted. Call .fit() or .load() first.")
@@ -390,9 +381,8 @@ class KipajiModel:
             "recommendations": drill_recs,
         }
 
-    # ----------------------------------------------------------
+
     # 7. SEARCH PLAYERS
-    # ----------------------------------------------------------
     def search_players(self, query: str, limit: int = 10) -> list:
         if not self.is_fitted:
             raise RuntimeError("Model not fitted.")
@@ -401,9 +391,8 @@ class KipajiModel:
         return matches[["player_id","full_name","team_abbr","position_group","games_played"]] \
                .head(limit).to_dict(orient="records")
 
-    # ----------------------------------------------------------
+
     # 8. LEADERBOARD
-    # ----------------------------------------------------------
     def leaderboard(self, metric: str = "pts_avg", position_group: Optional[str] = None,
                     top_n: int = 20, ascending: bool = False) -> list:
         df = self.kpis_df.copy()
@@ -416,7 +405,7 @@ class KipajiModel:
         return df[cols].to_dict(orient="records")
 
 
-# ── CLI entry point ────────────────────────────────────────
+# CLI entry point 
 if __name__ == "__main__":
     import argparse, pprint
 

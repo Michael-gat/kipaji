@@ -18,7 +18,7 @@ import jwt
 
 from model import KipajiModel
 
-# ── App setup ─────────────────────────────────────────────
+#App setup 
 app = FastAPI(
     title="Kipaji ML API",
     description="Player analysis and drill recommendation engine",
@@ -27,28 +27,33 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Node backend and frontend
+    allow_origins=["http://localhost:3000", "http://localhost:5000"],  # Node backend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ── Auth (validates JWT issued by Node/Express) ────────────
+# ── Auth (validates JWT issued by Node/Express) 
 JWT_SECRET  = os.getenv("JWT_SECRET", "change_me_in_production")
 JWT_ALGO    = "HS256"
 bearer_scheme = HTTPBearer()
 
-def verify_token() -> dict:
-    # Temporarily bypass auth for the demo/development
-    return {"user": "test"}
+def verify_token(creds: HTTPAuthorizationCredentials = Security(bearer_scheme)) -> dict:
+    try:
+        payload = jwt.decode(creds.credentials, JWT_SECRET, algorithms=[JWT_ALGO])
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
-# ── Load model once at startup ─────────────────────────────
+# Load model once at startup
 @lru_cache(maxsize=1)
 def get_model() -> KipajiModel:
     model = KipajiModel()
     try:
         model.load()
-    except Exception:
+    except FileNotFoundError:
         model.fit()
     return model
 
@@ -56,7 +61,7 @@ def get_model() -> KipajiModel:
 async def startup():
     get_model()   # warm up
 
-# ── Request / Response schemas ─────────────────────────────
+# Request / Response schemas
 class AnalysisResponse(BaseModel):
     player_id:      int
     full_name:      str
@@ -84,7 +89,7 @@ class LeaderboardEntry(BaseModel):
     position_group: Optional[str]
     games_played:   int
 
-# ── Endpoints ─────────────────────────────────────────────
+# ── Endpoints 
 
 @app.get("/health")
 def health():
